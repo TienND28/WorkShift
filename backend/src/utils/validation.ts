@@ -1,4 +1,4 @@
-import { RegexPatterns } from '../constants';
+import { RegexPatterns } from '../constants/index.js';
 
 /**
  * Validation utility functions

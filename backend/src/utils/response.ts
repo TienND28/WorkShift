@@ -1,5 +1,5 @@
 import { type Response } from 'express';
-import { HttpStatus } from '../constants';
+import { HttpStatus } from '../constants/index.js';
 
 export interface ApiResponse<T = any> {
     success: boolean;
