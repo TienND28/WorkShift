@@ -1,6 +1,6 @@
 import { Schema } from "mongoose";
-import { DayOfWeek } from "../enums/dayOfWeek.enum";
-import { AvailabilityType } from "../enums/availabilityType.enum";
+import { DayOfWeek } from "../enums/dayOfWeek.enum.js";
+import { AvailabilityType } from "../enums/availabilityType.enum.js";
 
 // Schema cho Weekly TimeSlot
 export const WeeklyTimeSlotSchema = new Schema(

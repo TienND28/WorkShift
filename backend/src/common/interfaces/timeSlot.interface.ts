@@ -1,4 +1,4 @@
-import { type DayOfWeekValue } from '../enums/dayOfWeek.enum';
+import { type DayOfWeekValue } from '../enums/dayOfWeek.enum.js';
 
 export interface TimeSlot {
     day: DayOfWeekValue;

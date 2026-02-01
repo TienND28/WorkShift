@@ -1,5 +1,5 @@
 import { Schema } from "mongoose";
-import { DayOfWeek } from "../enums/dayOfWeek.enum";
+import { DayOfWeek } from "../enums/dayOfWeek.enum.js";
 
 export const TimeSlotSchema = new Schema(
   {

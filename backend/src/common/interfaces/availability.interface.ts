@@ -1,5 +1,5 @@
-import { type DayOfWeekValue } from '../enums/dayOfWeek.enum';
-import { type AvailabilityTypeValue } from '../enums/availabilityType.enum';
+import { type DayOfWeekValue } from '../enums/dayOfWeek.enum.js';
+import { type AvailabilityTypeValue } from '../enums/availabilityType.enum.js';
 
 // TimeSlot cho mẫu hàng tuần (giữ nguyên như cũ)
 export interface WeeklyTimeSlot {
