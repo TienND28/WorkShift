@@ -1,148 +1,163 @@
-import { User } from "../user/user.schema.js";
+import type { Request } from "express";
+import { User, UserAuthProvider } from "../user/models/index.js";
+import { AuthProvider } from "../../common/enums/authProvider.enum.js";
+import { ProfileType } from "../../common/enums/profileType.enum.js";
+import { UserStatus } from "../../common/enums/userStatus.enum.js";
 import { ApiMessages } from "../../constants/index.js";
 import {
   generateTokens,
   verifyToken,
-  hashPassword,
-  comparePassword,
-  ConflictError,
+  buildJwtPayload,
   UnauthorizedError,
   NotFoundError,
-  BadRequestError,
 } from "../../utils/index.js";
 import {
-  type RegisterInput,
-  type LoginInput,
+  type GoogleAuthInput,
   type RefreshTokenInput,
-  type UpdateProfileInput,
-  type ChangePasswordInput,
 } from "./auth.schema.js";
+import { profileService } from "../profile/profile.service.js";
+import { googleAuthService } from "./google.service.js";
+import { sessionService } from "./session.service.js";
+import {
+  assertUserCanLogin,
+  formatAuthUser,
+  issueAuthTokens,
+  resolveProfileTypes,
+  syncUserFromGoogle,
+} from "./auth.helpers.js";
+import { resolveOnboardingStatus } from "./onboarding.service.js";
+import type { SelectProfileTypeInput } from "./auth.schema.js";
+import { BadRequestError } from "../../utils/errors.js";
+
+async function ensureUniqueUsername(base: string): Promise<string> {
+  let candidate = base.slice(0, 30);
+  let suffix = 0;
+
+  while (await User.exists({ username: candidate })) {
+    suffix += 1;
+    const tail = String(suffix);
+    candidate = `${base.slice(0, 30 - tail.length)}${tail}`;
+  }
+
+  return candidate;
+}
 
 export class AuthService {
-  /**
-   * Register new user
-   */
-  async register(data: RegisterInput) {
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: data.email });
-    if (existingUser) {
-      throw new ConflictError(ApiMessages.EMAIL_ALREADY_EXISTS);
+  async loginWithGoogle(data: GoogleAuthInput, req?: Request) {
+    const googleUser = await googleAuthService.verifyIdToken(data.idToken);
+
+    const authProvider = await UserAuthProvider.findOne({
+      provider: AuthProvider.GOOGLE,
+      providerUserId: googleUser.sub,
+    });
+
+    let user =
+      authProvider !== null
+        ? await User.findById(authProvider.userId)
+        : await User.findOne({ email: googleUser.email });
+
+    if (user && !authProvider) {
+      await UserAuthProvider.create({
+        userId: user._id,
+        provider: AuthProvider.GOOGLE,
+        providerUserId: googleUser.sub,
+        providerEmail: googleUser.email,
+      });
     }
-
-    // Hash password
-    const hashedPassword = await hashPassword(data.password);
-
-    // Create new user
-    const user = await User.create({
-      email: data.email,
-      password: hashedPassword,
-      name: data.name,
-      role: data.role,
-      ...(data.phone && { phone: data.phone }),
-    });
-
-    // Generate tokens
-    const { accessToken, refreshToken } = generateTokens({
-      userId: user._id.toString(),
-      email: user.email,
-      role: user.role,
-    });
-
-    return {
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        phone: user.phone,
-        role: user.role,
-        avatar: user.avatar,
-        isVerified: user.isVerified,
-        createdAt: user.createdAt as Date,
-      },
-      accessToken,
-      refreshToken,
-    };
-  }
-
-  /**
-   * Login user
-   */
-  async login(data: LoginInput) {
-    // Find user with password field
-    const user = await User.findOne({ email: data.email }).select("+password");
 
     if (!user) {
-      throw new UnauthorizedError(ApiMessages.INVALID_CREDENTIALS);
+      const username = await ensureUniqueUsername(googleUser.username);
+
+      user = await User.create({
+        email: googleUser.email,
+        username,
+        fullName: googleUser.fullName,
+        ...(googleUser.avatarUrl ? { avatarUrl: googleUser.avatarUrl } : {}),
+        status: UserStatus.ACTIVE,
+      });
+
+      await UserAuthProvider.create({
+        userId: user._id,
+        provider: AuthProvider.GOOGLE,
+        providerUserId: googleUser.sub,
+        providerEmail: googleUser.email,
+      });
+    } else {
+      syncUserFromGoogle(user, googleUser);
+      const taken = await User.exists({
+        username: googleUser.username,
+        _id: { $ne: user._id },
+      });
+      if (!taken) {
+        user.username = googleUser.username;
+      }
+      await user.save();
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      throw new UnauthorizedError("Account is deactivated");
-    }
+    assertUserCanLogin(user);
 
-    // Verify password
-    const isPasswordValid = await comparePassword(data.password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedError(ApiMessages.INVALID_CREDENTIALS);
-    }
-
-    // Generate tokens
-    const { accessToken, refreshToken } = generateTokens({
-      userId: user._id.toString(),
-      email: user.email,
-      role: user.role,
-    });
-
-    return {
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        phone: user.phone,
-        role: user.role,
-        avatar: user.avatar,
-        isVerified: user.isVerified,
-        createdAt: user.createdAt as Date,
-      },
-      accessToken,
-      refreshToken,
-    };
+    const profileTypes = await resolveProfileTypes(user._id.toString());
+    const onboarding = await resolveOnboardingStatus(user, profileTypes);
+    return issueAuthTokens(user, profileTypes, req, onboarding);
   }
 
-  /**
-   * Refresh access token
-   */
-  async refreshToken(data: RefreshTokenInput) {
+  async selectProfileType(userId: string, data: SelectProfileTypeInput, req?: Request) {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new NotFoundError("User not found");
+    }
+
+    const existing = await resolveProfileTypes(userId);
+    if (existing.length > 0) {
+      throw new BadRequestError("Profile type already selected");
+    }
+
+    await profileService.createProfile(userId, data.profileType);
+    const profileTypes = await resolveProfileTypes(userId);
+    const onboarding = await resolveOnboardingStatus(user, profileTypes);
+    return issueAuthTokens(user, profileTypes, req, onboarding);
+  }
+
+  async refreshToken(data: RefreshTokenInput, req?: Request) {
     try {
-      // Verify refresh token
       const decoded = verifyToken(data.refreshToken);
 
-      // Check if user still exists
+      const isSessionValid = await sessionService.validateRefreshSession(
+        data.refreshToken,
+      );
+      if (!isSessionValid) {
+        throw new UnauthorizedError(ApiMessages.INVALID_TOKEN);
+      }
+
       const user = await User.findById(decoded.userId);
       if (!user) {
         throw new UnauthorizedError("User no longer exists");
       }
 
-      if (!user.isActive) {
-        throw new UnauthorizedError("Account is deactivated");
-      }
+      assertUserCanLogin(user);
 
-      // Generate new tokens
-      const { accessToken, refreshToken } = generateTokens({
+      const profileTypes = await resolveProfileTypes(user._id.toString());
+      const jwtPayload = buildJwtPayload({
         userId: user._id.toString(),
         email: user.email,
-        role: user.role,
+        profileTypes,
+        isSystemAdmin: user.isSystemAdmin,
       });
 
+      const { accessToken, refreshToken } = generateTokens(jwtPayload);
+
+      await sessionService.rotateRefreshSession(
+        data.refreshToken,
+        refreshToken,
+        req,
+      );
+
       return { accessToken, refreshToken };
-    } catch (error) {
+    } catch {
       throw new UnauthorizedError(ApiMessages.INVALID_TOKEN);
     }
   }
 
-  /**
-   * Get user profile
-   */
   async getProfile(userId: string) {
     const user = await User.findById(userId);
 
@@ -150,74 +165,17 @@ export class AuthService {
       throw new NotFoundError("User not found");
     }
 
-    return {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      phone: user.phone,
-      role: user.role,
-      avatar: user.avatar,
-      isVerified: user.isVerified,
-      isActive: user.isActive,
-      createdAt: user.createdAt as Date,
-      updatedAt: user.updatedAt as Date,
-    };
+    const profileTypes = await resolveProfileTypes(userId);
+    const onboarding = await resolveOnboardingStatus(user, profileTypes);
+    return formatAuthUser(user, profileTypes, onboarding);
   }
 
-  /**
-   * Update user profile
-   */
-  async updateProfile(userId: string, data: UpdateProfileInput) {
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { $set: data },
-      { new: true, runValidators: true }
-    );
-
-    if (!user) {
-      throw new NotFoundError("User not found");
+  async logout(refreshToken?: string) {
+    if (refreshToken) {
+      await sessionService.revokeRefreshSession(refreshToken);
     }
 
-    return {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      phone: user.phone,
-      role: user.role,
-      avatar: user.avatar,
-      isVerified: user.isVerified,
-      updatedAt: user.updatedAt as Date,
-    };
-  }
-
-  /**
-   * Change password
-   */
-  async changePassword(userId: string, data: ChangePasswordInput) {
-    // Find user with password
-    const user = await User.findById(userId).select("+password");
-
-    if (!user) {
-      throw new NotFoundError("User not found");
-    }
-
-    // Verify current password
-    const isPasswordValid = await comparePassword(
-      data.currentPassword,
-      user.password
-    );
-    if (!isPasswordValid) {
-      throw new BadRequestError("Current password is incorrect");
-    }
-
-    // Update password
-    const hashedPassword = await hashPassword(data.newPassword);
-    user.password = hashedPassword;
-    await user.save();
-
-    return {
-      message: ApiMessages.PASSWORD_CHANGED,
-    };
+    return { message: ApiMessages.LOGOUT_SUCCESS };
   }
 }
 

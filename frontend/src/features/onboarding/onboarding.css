@@ -1,0 +1,148 @@
+/* WorkShift onboarding — design tokens & utilities (HireFlow mockup adapted) */
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: #FFFFFF;
+  --color-primary: #000000;
+  --color-on-primary: #ffffff;
+  --color-on-background: #1a1c1c;
+  --color-on-surface: #1a1c1c;
+  --color-on-surface-variant: #4c4546;
+  --color-surface-container-low: #f4f3f3;
+  --color-surface-container: #efeeed;
+  --color-surface-container-high: #e9e8e8;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-variant: #e3e2e2;
+  --color-border-subtle: #e5e5e5;
+  --color-secondary-container: #1f9dff;
+  --color-outline: #7e7576;
+  --color-error: #ba1a1a;
+  --color-background-light: #ffffff;
+  --color-accent: #4fd1c5;
+  --color-accent-hover: #3ec4b8;
+  --color-accent-muted: #4fd1c526;
+  --color-accent-foreground: #1a1c1c;
+
+  --spacing-gutter: 1rem;
+  --spacing-container-padding: 1.5rem;
+  --spacing-section-gap: 3rem;
+  --spacing-base: 0.5rem;
+  --max-width-onboarding: 40rem;
+}
+
+.role-card.selected {
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-container-low);
+}
+
+@layer components {
+  .app-header {
+    @apply sticky top-0 z-10 flex h-[72px] w-full shrink-0 items-center border-b border-border-subtle bg-background-light;
+  }
+
+  .onboarding-shell {
+    @apply flex min-h-dvh flex-col bg-background text-on-background antialiased;
+  }
+
+  .onboarding-main {
+    @apply mx-auto flex w-full max-w-(--max-width-onboarding) flex-1 flex-col px-(--spacing-container-padding);
+  }
+
+  .onboarding-title {
+    @apply text-[28px] font-bold leading-tight tracking-tight text-primary md:text-[32px];
+  }
+
+  .onboarding-subtitle {
+    @apply text-base leading-normal text-on-surface-variant;
+  }
+
+  .onboarding-label {
+    @apply text-sm font-semibold tracking-wide text-on-surface;
+  }
+
+  .onboarding-input {
+    @apply h-14 w-full rounded-xl border-none bg-[#f5f5f5] px-4 text-base text-primary outline-none transition placeholder:text-on-surface-variant focus:border focus:border-primary focus:bg-background-light focus:ring-0;
+  }
+
+  .onboarding-select {
+    @apply h-14 w-full cursor-pointer appearance-none rounded-xl border-none bg-surface-container-low px-4 text-base text-primary outline-none transition focus:bg-background-light focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .onboarding-btn-primary {
+    @apply inline-flex min-h-[52px] items-center justify-center rounded-full bg-primary px-6 py-4 text-sm font-semibold tracking-wide text-on-primary shadow-sm transition duration-200 hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .onboarding-btn-primary.flex-grow-next {
+    @apply flex-[2];
+  }
+
+  .onboarding-btn-primary.solo {
+    @apply w-full;
+  }
+
+  .onboarding-btn-outline {
+    @apply inline-flex min-h-[52px] flex-1 items-center justify-center rounded-full border border-border-subtle bg-background-light px-6 py-4 text-sm font-semibold tracking-wide text-primary transition duration-200 hover:bg-surface-container-low active:scale-[0.98];
+  }
+
+  .onboarding-actions {
+    @apply mt-10 flex gap-4;
+  }
+
+  .onboarding-step-label {
+    @apply text-xs font-semibold uppercase tracking-wider text-on-surface-variant;
+  }
+
+  .onboarding-segment-progress {
+    @apply flex gap-1;
+  }
+
+  .onboarding-segment {
+    @apply h-1 flex-1 rounded-full bg-surface-container-high transition-colors duration-300;
+  }
+
+  .onboarding-segment.active {
+    @apply bg-primary;
+  }
+
+  .onboarding-position-chip {
+    @apply flex min-h-[48px] items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left text-sm font-semibold transition duration-200 active:scale-[0.98];
+  }
+
+  .onboarding-position-chip.selected {
+    @apply border-primary bg-primary text-on-primary;
+  }
+
+  .onboarding-position-chip.unselected {
+    @apply border-border-subtle bg-background-light text-primary hover:bg-surface-container-low;
+  }
+
+  .onboarding-card {
+    @apply rounded-2xl border border-border-subtle bg-background-light p-(--spacing-container-padding);
+  }
+
+  .profile-chip {
+    @apply rounded-full bg-accent-muted px-3 py-1 text-sm font-medium text-accent-foreground;
+  }
+
+  .profile-tab {
+    @apply shrink-0 rounded-full border border-border-subtle bg-background-light px-4 py-2 text-sm font-medium text-on-surface-variant transition;
+  }
+
+  .profile-tab-active {
+    @apply border-accent bg-accent text-accent-foreground;
+  }
+
+  .profile-option {
+    @apply w-full rounded-xl border border-border-subtle bg-background-light px-4 py-2.5 text-left text-sm transition;
+  }
+
+  .profile-option-active {
+    @apply border-accent bg-accent-muted font-medium;
+  }
+
+  .profile-link {
+    @apply text-sm font-medium text-accent transition hover:text-accent-hover;
+  }
+
+}

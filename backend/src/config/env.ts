@@ -1,97 +1,80 @@
-import dotenv from 'dotenv';
-import { TokenExpiration } from '../constants/index.js';
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+import { envSchema, type EnvSchema } from "./env.schema.js";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-interface EnvConfig {
-  // Server
+const parsed = envSchema.safeParse(process.env);
+
+if (!parsed.success) {
+  const formatted = parsed.error.issues
+    .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
+    .join("\n");
+  console.error(`❌ Invalid environment variables:\n${formatted}`);
+  process.exit(1);
+}
+
+const env: EnvSchema = parsed.data;
+
+export interface EnvConfig {
   port: number;
-  nodeEnv: string;
-
-  // Database
+  nodeEnv: EnvSchema["NODE_ENV"];
+  logLevel: EnvSchema["LOG_LEVEL"];
   mongoUri: string;
-
-  // JWT
   jwtSecret: string;
   jwtExpiresIn: string;
   jwtRefreshExpiresIn: string;
-
-  // CORS
+  googleClientId?: string;
+  googleClientSecret?: string;
+  appUrl: string;
+  emailFrom: string;
+  smtpHost?: string;
+  smtpPort: number;
+  smtpUser?: string;
+  smtpPass?: string;
+  smtpSecure: boolean;
   corsOrigin: string;
-
-  // Pagination
+  swaggerEnabled: boolean;
   defaultPageSize: number;
   maxPageSize: number;
 }
 
-/**
- * Parse and validate environment variables
- */
-const parseEnv = (): EnvConfig => {
-  return {
-    // Server
-    port: parseInt(process.env.PORT || '8000', 10),
-    nodeEnv: process.env.NODE_ENV || 'development',
-
-    // Database
-    mongoUri: process.env.MONGO_URI || '',
-
-    // JWT
-    jwtSecret: process.env.JWT_SECRET || '',
-    jwtExpiresIn: process.env.JWT_EXPIRES_IN || TokenExpiration.ACCESS_TOKEN,
-    jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || TokenExpiration.REFRESH_TOKEN,
-
-    // CORS
-    corsOrigin: process.env.CORS_ORIGIN || '*',
-
-    // Pagination
-    defaultPageSize: 10,
-    maxPageSize: 100,
-  };
+export const ENV: EnvConfig = {
+  port: env.PORT,
+  nodeEnv: env.NODE_ENV,
+  logLevel: env.LOG_LEVEL,
+  mongoUri: env.MONGO_URI,
+  jwtSecret: env.JWT_SECRET,
+  jwtExpiresIn: env.JWT_EXPIRES_IN,
+  jwtRefreshExpiresIn: env.JWT_REFRESH_EXPIRES_IN,
+  ...(env.GOOGLE_CLIENT_ID ? { googleClientId: env.GOOGLE_CLIENT_ID } : {}),
+  ...(env.GOOGLE_CLIENT_SECRET
+    ? { googleClientSecret: env.GOOGLE_CLIENT_SECRET }
+    : {}),
+  appUrl: env.APP_URL,
+  emailFrom: env.EMAIL_FROM,
+  ...(env.SMTP_HOST ? { smtpHost: env.SMTP_HOST } : {}),
+  smtpPort: env.SMTP_PORT,
+  ...(env.SMTP_USER ? { smtpUser: env.SMTP_USER } : {}),
+  ...(env.SMTP_PASS ? { smtpPass: env.SMTP_PASS } : {}),
+  smtpSecure: env.SMTP_SECURE,
+  corsOrigin: env.CORS_ORIGIN,
+  swaggerEnabled: env.SWAGGER_ENABLED,
+  defaultPageSize: 10,
+  maxPageSize: 100,
 };
 
-export const ENV: EnvConfig = parseEnv();
-
-/**
- * Validate required environment variables
- */
 export const validateEnv = (): void => {
-  const required: Array<keyof EnvConfig> = ['mongoUri', 'jwtSecret'];
-  const missing: string[] = [];
-
-  for (const key of required) {
-    if (!ENV[key]) {
-      missing.push(key);
-    }
-  }
-
-  if (missing.length > 0) {
-    throw new Error(
-      `❌ Missing required environment variables: ${missing.join(', ')}\n` +
-      `Please check your .env file and ensure these variables are set.`
+  // Logger may not be initialized yet — keep bootstrap log minimal
+  if (ENV.nodeEnv === "development") {
+    console.log(
+      `✅ Env OK — ${ENV.nodeEnv} :${ENV.port} swagger=${ENV.swaggerEnabled}`,
     );
   }
-
-  console.log('✅ Environment variables validated successfully');
 };
 
-/**
- * Check if running in production
- */
-export const isProduction = (): boolean => {
-  return ENV.nodeEnv === 'production';
-};
-
-/**
- * Check if running in development
- */
-export const isDevelopment = (): boolean => {
-  return ENV.nodeEnv === 'development';
-};
-
-/**
- * Check if running in test
- */
-export const isTest = (): boolean => {
-  return ENV.nodeEnv === 'test';
-};
+export const isProduction = (): boolean => ENV.nodeEnv === "production";
+export const isDevelopment = (): boolean => ENV.nodeEnv === "development";
+export const isTest = (): boolean => ENV.nodeEnv === "test";

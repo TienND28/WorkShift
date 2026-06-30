@@ -1,0 +1,7 @@
+export enum ShiftSlotStatus {
+  AVAILABLE = "AVAILABLE",
+  RESERVED = "RESERVED",
+  ASSIGNED = "ASSIGNED",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+}

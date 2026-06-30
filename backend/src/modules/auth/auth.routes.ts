@@ -1,74 +1,46 @@
-import { Router } from 'express';
-import {
-    registerSchema,
-    loginSchema,
-    refreshTokenSchema,
-    updateProfileSchema,
-    changePasswordSchema,
-} from './auth.schema.js';
-import { validate } from '../../middleware/validate.js';
-import { authenticate } from '../../middleware/auth.js';
-import { AuthController } from './auth.controller.js';
+import { Router } from "express";
 
+import {
+  googleAuthSchema,
+  refreshTokenSchema,
+  selectProfileTypeSchema,
+} from "./auth.schema.js";
+
+import { ValidationPipe } from "../../common/pipes/validation.pipe.js";
+import { authenticate } from "../../middleware/auth.js";
+import { authRateLimiter, emailAuthRateLimiter } from "../../middleware/rateLimit.js";
+import { AuthController } from "./auth.controller.js";
+
+/** /api/auth — xác thực & onboarding vai trò */
 const router = Router();
 
-/**
- * Public routes
- */
-
-// POST /api/auth/register - Register new user
+// Đăng nhập Google OAuth (idToken từ client)
 router.post(
-    '/register',
-    validate(registerSchema),
-    AuthController.register
+  "/google",
+  authRateLimiter,
+  ValidationPipe(googleAuthSchema),
+  AuthController.googleLogin,
 );
 
-// POST /api/auth/login - Login user
+// Làm mới access token bằng refresh token
 router.post(
-    '/login',
-    validate(loginSchema),
-    AuthController.login
+  "/refresh",
+  ValidationPipe(refreshTokenSchema),
+  AuthController.refreshToken,
 );
 
-// POST /api/auth/refresh - Refresh access token
+// Thông tin user hiện tại + trạng thái onboarding
+router.get("/me", authenticate, AuthController.getProfile);
+
+// Chọn WORKER hoặc EMPLOYER sau khi đăng ký (bước chọn vai trò)
 router.post(
-    '/refresh',
-    validate(refreshTokenSchema),
-    AuthController.refreshToken
+  "/select-profile-type",
+  authenticate,
+  ValidationPipe(selectProfileTypeSchema),
+  AuthController.selectProfileType,
 );
 
-/**
- * Protected routes (require authentication)
- */
-
-// GET /api/auth/me - Get current user profile
-router.get(
-    '/me',
-    authenticate,
-    AuthController.getProfile
-);
-
-// PUT /api/auth/profile - Update user profile
-router.put(
-    '/profile',
-    authenticate,
-    validate(updateProfileSchema),
-    AuthController.updateProfile
-);
-
-// POST /api/auth/change-password - Change password
-router.post(
-    '/change-password',
-    authenticate,
-    validate(changePasswordSchema),
-    AuthController.changePassword
-);
-
-// POST /api/auth/logout - Logout (client-side)
-router.post(
-    '/logout',
-    authenticate,
-    AuthController.logout
-);
+// Thu hồi phiên đăng nhập (logout)
+router.post("/logout", authenticate, AuthController.logout);
 
 export default router;

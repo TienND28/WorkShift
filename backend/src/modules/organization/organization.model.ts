@@ -13,6 +13,13 @@ export enum OrganizationLevel {
   LEVEL_2 = 2  // Doanh nghiệp (GPKD) - Chuỗi, Công ty lớn
 }
 
+/** Chỉ lấy giá trị số — Object.values(numeric enum) còn cả key string gây CastError */
+const ORGANIZATION_LEVEL_VALUES = [
+  OrganizationLevel.LEVEL_0,
+  OrganizationLevel.LEVEL_1,
+  OrganizationLevel.LEVEL_2,
+] as const;
+
 export interface IOrganization extends Document {
   ownerId: mongoose.Types.ObjectId; 
 
@@ -63,7 +70,7 @@ export interface IOrganization extends Document {
 
 const OrganizationSchema = new Schema<IOrganization>(
   {
-    ownerId: { type: Schema.Types.ObjectId, ref: 'Employer', required: true },
+    ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     name: { type: String, required: true, trim: true },
     slug: { type: String, unique: true, lowercase: true, trim: true },
     description: { type: String },
@@ -73,9 +80,9 @@ const OrganizationSchema = new Schema<IOrganization>(
     organizationType: { type: Schema.Types.ObjectId, ref: 'Industry', required: true },
 
     address: { type: String, required: true },
-    provinceId: { type: Schema.Types.ObjectId, ref: 'Location', required: true },
-    districtId: { type: Schema.Types.ObjectId, ref: 'Location', required: true },
-    wardId: { type: Schema.Types.ObjectId, ref: 'Location', required: true },
+    provinceId: { type: Schema.Types.ObjectId, ref: 'Province', required: true },
+    districtId: { type: Schema.Types.ObjectId, ref: 'District', required: true },
+    wardId: { type: Schema.Types.ObjectId, ref: 'Ward', required: true },
     coordinates: {
       lat: { type: Number },
       lng: { type: Number }
@@ -98,7 +105,7 @@ const OrganizationSchema = new Schema<IOrganization>(
     },
     verificationLevel: {
       type: Number,
-      enum: Object.values(OrganizationLevel),
+      enum: ORGANIZATION_LEVEL_VALUES,
       default: OrganizationLevel.LEVEL_0
     },
     verificationDocuments: [{

@@ -66,6 +66,15 @@ export class ConflictError extends ApiError {
 }
 
 /**
+ * 429 Too Many Requests
+ */
+export class TooManyRequestsError extends ApiError {
+    constructor(message: string = 'Too many requests') {
+        super(message, HttpStatus.TOO_MANY_REQUESTS);
+    }
+}
+
+/**
  * 422 Validation Error
  */
 export class ValidationError extends ApiError {

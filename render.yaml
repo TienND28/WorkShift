@@ -3,7 +3,7 @@ services:
     name: workshift
     runtime: node
     plan: free
-    buildCommand: npm run build
+    buildCommand: npm ci --prefix backend && npm ci --prefix frontend && npm run build --prefix frontend
     startCommand: npm start
     envVars:
       - key: NODE_ENV

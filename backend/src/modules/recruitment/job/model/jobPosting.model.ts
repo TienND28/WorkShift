@@ -1,6 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
-
-export type JobPostingStatus = "DRAFT" | "PUBLISHED" | "CLOSED" | "EXPIRED";
+import { JobPostingStatus } from "../../../../common/enums/jobPostingStatus.enum.js";
 
 export interface IJobPosting extends Document {
   organizationId: mongoose.Types.ObjectId;
@@ -18,8 +17,10 @@ export interface IJobPosting extends Document {
 
   requirements?: string;
   benefits?: string;
+  deadline?: Date;
 
   publishedAt?: Date;
+  closedAt?: Date;
 
   status: JobPostingStatus;
 
@@ -39,7 +40,7 @@ const JobPostingSchema = new Schema<IJobPosting>(
     },
     posterId: {
       type: Schema.Types.ObjectId,
-      ref: "employer",
+      ref: "User",
       required: true,
     },
 
@@ -53,14 +54,17 @@ const JobPostingSchema = new Schema<IJobPosting>(
       address: { type: String, trim: true },
     },
 
-    requirements: { type: String, default: [] },
-    benefits: { type: String, default: [] },
+    requirements: { type: String, trim: true },
+    benefits: { type: String, trim: true },
+    deadline: { type: Date },
+
     publishedAt: { type: Date },
+    closedAt: { type: Date },
 
     status: {
       type: String,
-      enum: ["DRAFT", "PUBLISHED", "CLOSED", "EXPIRED"],
-      default: "DRAFT",
+      enum: Object.values(JobPostingStatus),
+      default: JobPostingStatus.DRAFT,
     },
 
     viewCount: { type: Number, default: 0 },
@@ -69,10 +73,8 @@ const JobPostingSchema = new Schema<IJobPosting>(
   { timestamps: true },
 );
 
-// Indexes
 JobPostingSchema.index({ organizationId: 1, status: 1 });
 JobPostingSchema.index({ status: 1, publishedAt: -1 });
-JobPostingSchema.index({ deadline: 1 });
 
 export const JobPosting = mongoose.model<IJobPosting>(
   "JobPosting",

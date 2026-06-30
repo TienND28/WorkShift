@@ -1,64 +1,112 @@
 import { Router } from "express";
+
 import { validate } from "../../../middleware/validate.js";
+
 import {
+
   authGuard,
+
   adminGuard,
+
   optionalAuthGuard,
+
 } from "../../../middleware/guards.js";
+
 import { createIndustrySchema, updateIndustrySchema } from "./industry.schema.js";
+
 import { IndustryController } from "./industry.controller.js";
+
 import { objectIdParamSchema } from "../../../common/schemas/objectIdParam.schema.js";
+
+
+
+/** /api/industries — quản trị ngành nghề (admin) + xem danh sách active */
 
 const router = Router();
 
-/**
- * Public routes
- */
 
-// GET /api/industries - Get active industries
+
+// Ngành đang hoạt động (public)
+
 router.get("/", IndustryController.getActive);
 
-// GET /api/industries/:id - Get industry by id
-router.get(
-  "/:id",
-  optionalAuthGuard(),
-  validate(objectIdParamSchema()),
-  IndustryController.getById
-);
 
-/**
- * Admin routes
- * Require authentication & admin role
- */
 
-// POST /api/industries - Create new industry
-router.post(
-  "/",
-  authGuard(),
-  adminGuard(),
-  validate(createIndustrySchema),
-  IndustryController.create
-);
+// Tất cả ngành kể cả ẩn (admin)
 
-// GET /api/industries/admin/all - Get all industries (including inactive)
 router.get("/admin/all", authGuard(), adminGuard(), IndustryController.getAll);
 
-// PUT /api/industries/:id - Update industry
-router.put(
-  "/:id",
+
+
+// Tạo ngành mới (admin)
+
+router.post(
+
+  "/",
+
   authGuard(),
+
   adminGuard(),
-  validate(updateIndustrySchema),
-  IndustryController.update
+
+  validate(createIndustrySchema),
+
+  IndustryController.create,
+
 );
 
-// DELETE /api/industries/:id - Delete industry
-router.delete(
+
+
+// Chi tiết một ngành
+
+router.get(
+
   "/:id",
-  authGuard(),
-  adminGuard(),
+
+  optionalAuthGuard(),
+
   validate(objectIdParamSchema()),
-  IndustryController.delete
+
+  IndustryController.getById,
+
 );
+
+
+
+// Cập nhật ngành (admin)
+
+router.put(
+
+  "/:id",
+
+  authGuard(),
+
+  adminGuard(),
+
+  validate(updateIndustrySchema),
+
+  IndustryController.update,
+
+);
+
+
+
+// Xóa / vô hiệu ngành (admin)
+
+router.delete(
+
+  "/:id",
+
+  authGuard(),
+
+  adminGuard(),
+
+  validate(objectIdParamSchema()),
+
+  IndustryController.delete,
+
+);
+
+
 
 export default router;
+

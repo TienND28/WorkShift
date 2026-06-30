@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyToken, JwtPayload } from "../utils/jwt.js";
 import { UnauthorizedError, ForbiddenError } from "../utils/errors.js";
-import { User, UserRole } from "../modules/user/user.schema.js";
+import { User } from "../modules/user/models/user.model.js";
+import { UserStatus } from "../common/enums/userStatus.enum.js";
+import { UserRole } from "../modules/user/user.schema.js";
 
 /**
  * Extend Express Request to include user
@@ -41,7 +43,7 @@ export const authenticate = async (
       throw new UnauthorizedError("User no longer exists");
     }
 
-    if (!user.isActive) {
+    if (user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedError("User account is deactivated");
     }
 
@@ -104,7 +106,7 @@ export const optionalAuth = async (
         const decoded = verifyToken(token);
         // Optionally check if user still exists and is active
         const user = await User.findById(decoded.userId);
-        if (user && user.isActive) {
+        if (user && user.status === UserStatus.ACTIVE) {
           req.user = decoded;
         }
       } catch (error) {

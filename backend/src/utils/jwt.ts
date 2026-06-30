@@ -1,41 +1,54 @@
 import jwt from "jsonwebtoken";
 import { ENV } from "../config/env.js";
-import { type UserRole } from "../modules/user/user.schema.js";
+import { ProfileType } from "../common/enums/profileType.enum.js";
 
 export interface JwtPayload {
   userId: string;
   email: string;
-  role: UserRole;
+  profileTypes: ProfileType[];
+  isSystemAdmin: boolean;
+  /** @deprecated Use profileTypes — kept for existing authorize() calls */
+  role: "admin" | "employer" | "worker";
 }
 
-/**
- * Generate access token
- */
+export const buildJwtPayload = (input: {
+  userId: string;
+  email: string;
+  profileTypes: ProfileType[];
+  isSystemAdmin: boolean;
+}): JwtPayload => {
+  let role: JwtPayload["role"] = "worker";
+  if (input.isSystemAdmin) {
+    role = "admin";
+  } else if (input.profileTypes.includes(ProfileType.EMPLOYER)) {
+    role = "employer";
+  }
+
+  return {
+    userId: input.userId,
+    email: input.email,
+    profileTypes: input.profileTypes,
+    isSystemAdmin: input.isSystemAdmin,
+    role,
+  };
+};
+
 export const generateAccessToken = (payload: JwtPayload): string => {
   return jwt.sign(payload, ENV.jwtSecret!, {
     expiresIn: ENV.jwtExpiresIn,
   } as jwt.SignOptions);
 };
 
-/**
- * Generate refresh token
- */
 export const generateRefreshToken = (payload: JwtPayload): string => {
   return jwt.sign(payload, ENV.jwtSecret!, {
     expiresIn: ENV.jwtRefreshExpiresIn,
   } as jwt.SignOptions);
 };
 
-/**
- * Verify token
- */
 export const verifyToken = (token: string): JwtPayload => {
   return jwt.verify(token, ENV.jwtSecret!) as JwtPayload;
 };
 
-/**
- * Generate both access and refresh tokens
- */
 export const generateTokens = (payload: JwtPayload) => {
   return {
     accessToken: generateAccessToken(payload),
@@ -43,13 +56,10 @@ export const generateTokens = (payload: JwtPayload) => {
   };
 };
 
-/**
- * Decode token without verification (useful for debugging)
- */
 export const decodeToken = (token: string): JwtPayload | null => {
   try {
     return jwt.decode(token) as JwtPayload;
-  } catch (error) {
+  } catch {
     return null;
   }
 };

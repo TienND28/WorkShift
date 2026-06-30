@@ -1,34 +1,31 @@
-import mongoose from 'mongoose';
-import { ENV } from '../config/env.js';
+import mongoose from "mongoose";
+import { ENV } from "./env.js";
+import { logger } from "../common/logger/index.js";
 
 export const connectDB = async (): Promise<void> => {
-    try {
-        if (!ENV.mongoUri) {
-            throw new Error('MONGO_URI is not defined in environment variables');
-        }
+  try {
+    await mongoose.connect(ENV.mongoUri);
 
-        await mongoose.connect(ENV.mongoUri);
+    logger.info(
+      { database: mongoose.connection.name },
+      "MongoDB connected",
+    );
 
-        console.log('✅ MongoDB connected successfully');
-        console.log(`📊 Database: ${mongoose.connection.name}`);
+    mongoose.connection.on("error", (error) => {
+      logger.error({ err: error }, "MongoDB connection error");
+    });
 
-        // Handle connection events
-        mongoose.connection.on('error', (error) => {
-            console.error('❌ MongoDB connection error:', error);
-        });
+    mongoose.connection.on("disconnected", () => {
+      logger.warn("MongoDB disconnected");
+    });
 
-        mongoose.connection.on('disconnected', () => {
-            console.warn('⚠️  MongoDB disconnected');
-        });
-
-        // Graceful shutdown
-        process.on('SIGINT', async () => {
-            await mongoose.connection.close();
-            console.log('MongoDB connection closed through app termination');
-            process.exit(0);
-        });
-    } catch (error) {
-        console.error('❌ MongoDB connection failed:', error);
-        throw error;
-    }
+    process.on("SIGINT", async () => {
+      await mongoose.connection.close();
+      logger.info("MongoDB connection closed");
+      process.exit(0);
+    });
+  } catch (error) {
+    logger.fatal({ err: error }, "MongoDB connection failed");
+    throw error;
+  }
 };
