@@ -35,7 +35,9 @@ app.set("trust proxy", 1);
 app.use(helmet({ contentSecurityPolicy: ENV.nodeEnv === "production" }));
 app.use(
   cors({
-    origin: ENV.corsOrigin,
+    origin: ENV.corsOrigin.includes(",")
+      ? ENV.corsOrigin.split(",").map((o) => o.trim())
+      : ENV.corsOrigin,
     credentials: true,
   }),
 );
